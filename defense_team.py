@@ -11,47 +11,50 @@ class DefenseAttorneyAgent:
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash-lite", 
             google_api_key=gemini_api_key,
-            temperature=0.6 # Higher temperature allows for more "creative" justification
+            temperature=0.5 # Higher temperature allows for more "creative" justification
         )
         self.tavily_client = TavilyClient(api_key=tavily_api_key)
         self.status_callback = status_callback
         
     def find_supporting_precedents(self, feature: str):
         """Search for successful examples or legal precedents that support a feature."""
-        query = f"successful examples and benefits of {feature} in modern courthouses"
+        query = f"successful examples and benefits of {feature} in court proceedings"
         response = self.tavily_client.search(query=query, search_depth="advanced", max_results=3)
         return response.get('results', [])
 
     def defend_model(self, model_description: str, critique_points: str = None) -> str:
-        """The Advocate's core logic: Defending the courthouse design."""
+        """The Advocate's core logic: Defending the accused person."""
         if self.status_callback:
             self.status_callback("🛡️ The Defense is gathering evidence and precedents...")
         
         # Optional: Search for supporting data based on the model description
-        support_data = self.find_supporting_precedents("modern open-plan") # Example feature
+        support_data = self.find_supporting_precedents("defending an accused person in courtroom") # Example feature
         support_context = "\n".join([f"- {s['content']}" for s in support_data])
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a lead Defense Attorney specializing in Architectural Liability and Construction Law.
-            Your client is the Architect of the proposed courthouse model. Your goal is to zealously defend the design against all charges of inefficiency or flaw.
+            ("system", """You are a lead Defense Attorney specializing in protecting the legal rights of the accused.
+            Your goal is to defend the accused against charges made by the prosecution.
 
+            CRITICAL CONSTRAINTS:
+            1. LENGTH: Your response must be STRICTLY between 300-350 words. Do not be too short, do not be too long.
+            2. FOCUS: Discuss ONLY the case in question. Do not veer into generalities.
+            3. STYLE: Prioritize FACTS over jargon, but maintain a professional legal tone.
+            
             Your responsibilities:
-            1. Opening Statement: Present the model's design choices as deliberate, lawful, and necessary for justice.
-            2. Rebuttal / Cross-Examination: If opposing counsel (the Critic) presents flaws, argue that these concerns are speculative, inadmissible, or outweighed by the benefits. Cast "reasonable doubt" on the validity of the critique.
-            3. Cite Precedents: Reference successful examples (Exhibits A, B, etc.) to prove the design is sound.
-            4. Closing Argument: Summarize why the model must be accepted (acquitted) as the superior choice.
-            5. Tone: Use legal terminology (e.g., "submit into evidence", "objection", "precedent", "your Honor", "client's intent"), be persuasive, protective of the client, and professional."""),
+            1. Protecting the legal and constitutional rights of the accused.
+            2. Rebut specific prosecution points with logic and evidence (exhibits) if any. Do not make up any information. Work with given data.
+            3. Analyse the case and challenge the evidence presented by the prosecution."""),
             ("user", f"""
             EVIDENCE / PRECEDENTS (EXHIBITS):
             {support_context}
 
-            CLIENT'S PROPOSED MODEL:
+            CLIENT'S PROPOSED CASE:
             {model_description}
 
             PROSECUTION'S CRITIQUE (IF ANY):
             {critique_points if critique_points else "No charges filed yet."}
 
-            Provide a compelling legal defense of this model:""")
+            Provide a compelling legal defense of this case:""")
         ])
         
         try:
@@ -85,7 +88,7 @@ class DefenseStrategistAgent:
         
     def find_legal_loopholes(self, prosecutor_point: str):
         """Search for legal precedents that contradict the prosecutor's claims."""
-        query = f"legal exceptions and successful defenses against {prosecutor_point} in construction law"
+        query = f"legal exceptions and successful defenses against {prosecutor_point} in criminal law"
         response = self.tavily_client.search(query=query, search_depth="advanced", max_results=3)
         return response.get('results', [])
 
@@ -96,7 +99,7 @@ class DefenseStrategistAgent:
         
         # Step 1: Find counter-evidence against key prosecution points
         # Keep it simple: Assume the prosecutor attacks safety.
-        counter_evidence = self.find_legal_loopholes("strict liability in design")
+        counter_evidence = self.find_legal_loopholes("logic and reasoning of prosecution")
         loophole_context = "\n".join([f"- {s['content']}" for s in counter_evidence])
 
         # Step 2: Strategic Analysis
@@ -106,20 +109,20 @@ class DefenseStrategistAgent:
             You are NOT judging the model. You are attacking the Prosecutor's logic.
             
             Evaluate the Prosecutor's case based on:
-            1. Logical Fallacies: Is the prosecutor using slippery slope or ad hominem attacks?
+            1. Logical Fallacies: Is the prosecutor using prejudiced attacks?
             2. Lack of Precedent: Is their argument purely speculative?
-            3. Misinterpretation: Have they misunderstood the design intent?
-            4. Counter-Strategy: Provide 3 specific legal arguments the Defense Lawyer (Advocate A) should use in rebuttal.
+            3. Misinterpretation: Have they misunderstood the accused's intent?
+            4. Counter-Strategy: Provide 3 specific legal arguments the Defense Lawyer should use in rebuttal.
             
             Be sharp, cynical, and 100% on the side of the Defense."""),
             ("user", f"""
             LEGAL LOOPHOLES & PRECEDENTS:
             {loophole_context}
 
-            DEFENDANT'S MODEL:
+            DEFENDANT'S CASE:
             {model_description}
 
-            PROSECUTOR'S ARGUMENT:
+            PROSECUTION'S ARGUMENT:
             {prosecutor_argument}
 
             Provide a strategic breakdown of the prosecution's weaknesses:""")

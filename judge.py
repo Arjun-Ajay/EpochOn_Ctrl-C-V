@@ -16,7 +16,7 @@ class JudgeAgent:
             status_callback: Optional callback for status updates.
         """
         self.llm = ChatGroq(
-            temperature=0, # Zero temperature for maximum objectivity
+            temperature=0.1, # temperature for maximum objectivity
             model="llama-3.3-70b-versatile", # High reasoning capability
             groq_api_key=groq_api_key
         )

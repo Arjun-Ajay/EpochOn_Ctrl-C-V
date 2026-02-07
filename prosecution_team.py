@@ -11,7 +11,7 @@ class ProsecutorAgent:
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash-lite",
             google_api_key=gemini_api_key,
-            temperature=0.8 # Higher temperature for creative prosecution
+            temperature=0.5 # Higher temperature for creative prosecution
         )
         self.tavily_client = TavilyClient(api_key=tavily_api_key)
         self.status_callback = status_callback
@@ -23,7 +23,7 @@ class ProsecutorAgent:
         return response.get('results', [])
 
     def prosecute_model(self, model_description: str, defense_arguments: str = None) -> str:
-        """The Prosecutor's core logic: attacking the courthouse design."""
+        """The Prosecutor's core logic: attacking the accused of being guilty of the crime."""
         if self.status_callback:
             self.status_callback("⚖️ The Prosecution is preparing the indictment...")
         
@@ -32,26 +32,29 @@ class ProsecutorAgent:
         damage_context = "\n".join([f"- {s['content']}" for s in damage_data])
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are the Chief Prosecutor representing the Public Interest and Judicial Safety standards.
-            Your goal is to relentlessly cross-examine the proposed courthouse model and expose every flaw, safety risk, and inefficiency.
+            ("system", """You are the Chief Prosecutor representing the Public Interest and Judicial Safety.
+            Your goal is to cross-examine the defence's plea and explose flaws in the arguments being made.
+
+            CRITICAL CONSTRAINTS:
+            1. LENGTH: Your response must be STRICTLY between 300-350 words. Do not be too short, do not be too long.
+            2. FOCUS: Discuss ONLY the case in question. Do not veer into generalities.
+            3. STYLE: Be accusatory, sharp, and authoritative, but stick to the facts of the case.
 
             Your responsibilities:
-            1. Opening Statement: Declare the model "guilty" of poor design, safety violations, or wastefulness.
-            2. Cross-Examination: If the Defense has spoken, tear apart their arguments. Point out contradictions or idealism that ignores reality.
-            3. Cite Violations: Use the provided context (Exhibit B) to show where similar designs have failed or are illegal.
-            4. Closing Argument: Demand that the model be rejected (convicted) for the safety of the public.
-            5. Tone: Accusatory, sharp, authoritative, and uncompromising. Use legal terms like "negligence", "liability", "motion to strike", "objection"."""),
+            1. Opening Statement: Declare the defendend "guilty" of the accused crimes.
+            2. Cross-Examination: Tear apart Defense arguments with logic.
+            3. Cite Violations: Use provided context (exhibits) to show failures."""),
             ("user", f"""
             EVIDENCE OF FAILURES (EXHIBIT B):
             {damage_context}
 
-            DEFENDANT'S PROPOSED MODEL:
+            DEFENDANT'S PROPOSED CASE:
             {model_description}
 
             DEFENSE ARGUMENTS (IF ANY):
             {defense_arguments if defense_arguments else "The Defense has remained silent."}
 
-            Prosecute this model immediately:""")
+            Prosecute this case immediately:""")
         ])
         
         try:
@@ -108,15 +111,15 @@ class ProsecutionStrategistAgent:
             Evaluate the Defense's case based on:
             1. Emotional Manipulation: Is the defense using sob stories instead of facts?
             2. Safety Violations: Does the defense ignore public safety regulations?
-            3. Cost: Is the defense hiding the true cost to the taxpayer?
-            4. Attack Plan: Provide 3 lethal questions the Prosecutor (Advocate B) should ask on cross-examination.
+            3. Cost: Is the defense hiding the true intents of the accused?
+            4. Attack Plan: Provide 3 lethal questions the Prosecutor should ask on cross-examination.
             
             Be ruthless, precise, and completely intolerant of vague "visionary" talk."""),
             ("user", f"""
             DAMNING EVIDENCE (REBUTTAL):
             {rebuttal_context}
 
-            DEFENDANT'S MODEL:
+            DEFENDANT'S CASE:
             {model_description}
 
             DEFENSE ARGUMENT:
