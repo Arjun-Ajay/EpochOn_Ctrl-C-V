@@ -62,7 +62,7 @@ class JudgeAgent:
         # We ask Groq to extract 3 critical fact-based claims that conflict.
         claim_extraction_prompt = ChatPromptTemplate.from_messages([
             ("system", "You are a Judicial Clerk. Extract 3 specific, verifiable factual claims that are in dispute between the Defense and Prosecution."),
-            ("user", f"""
+            ("user", """
             DEFENSE BRIEF: {defense_brief}
             PROSECUTION BRIEF: {prosecution_brief}
             
@@ -72,7 +72,10 @@ class JudgeAgent:
         
         try:
             extraction_chain = claim_extraction_prompt | self.llm
-            claims_json = extraction_chain.invoke({}).content
+            claims_json = extraction_chain.invoke({
+                "defense_brief": defense_brief,
+                "prosecution_brief": prosecution_brief
+            }).content
             # Cleanup json string if needed
             if "```json" in claims_json:
                 claims_json = claims_json.split("```json")[1].split("```")[0]
@@ -87,6 +90,7 @@ class JudgeAgent:
         if self.status_callback:
             self.status_callback("⚖️ Deliberating on the findings...")
 
+        # Step 3: Final Judgment
         # Step 3: Final Judgment
         judgment_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are the Supreme Judge of Architectural Law.
@@ -118,7 +122,7 @@ class JudgeAgent:
             [VERDICT: DEFENSE WINS | VERDICT: PROSECUTION WINS | REFUSAL: NEW SESSION ORDERED]
             
             [Detailed reasoning for the decision/refusal]"""),
-            ("user", f"""
+            ("user", """
             DEFENSE ARGUMENTS: {defense_brief}
             PROSECUTION ARGUMENTS: {prosecution_brief}
             DEFENSE STRATEGY: {defense_strategy}
@@ -131,9 +135,39 @@ class JudgeAgent:
         ])
 
         judgment_chain = judgment_prompt | self.llm
-        verdict = judgment_chain.invoke({}).content
+        verdict = judgment_chain.invoke({
+            "defense_brief": defense_brief,
+            "prosecution_brief": prosecution_brief,
+            "defense_strategy": defense_strategy,
+            "prosecution_strategy": prosecution_strategy,
+            "verification_text": verification_text
+        }).content
         
         if self.status_callback:
             self.status_callback("✅ The Judge has reached a decision.")
             
         return verdict
+
+    def has_sufficient_evidence(self, defense_brief: str, prosecution_brief: str) -> bool:
+        """
+        Determines if the judge has heard enough to render a verdict.
+        """
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a pragmatic Judge. Determine if the current arguments are sufficient to render a verdict or if more debate is needed."),
+            ("user", """
+            DEFENSE BRIEF SO FAR: {defense_brief}
+            PROSECUTION BRIEF SO FAR: {prosecution_brief}
+            
+            Do you have enough information to make a clear decision?
+            Reply ONLY with 'YES' or 'NO'.
+            """)
+        ])
+        chain = prompt | self.llm
+        try:
+            response = chain.invoke({
+                "defense_brief": defense_brief,
+                "prosecution_brief": prosecution_brief
+            }).content.strip().upper()
+            return "YES" in response
+        except:
+            return False

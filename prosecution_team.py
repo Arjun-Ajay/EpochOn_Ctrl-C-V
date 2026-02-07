@@ -11,7 +11,7 @@ class ProsecutorAgent:
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash-lite",
             google_api_key=gemini_api_key,
-            temperature=0.6 # Higher temperature for creative prosecution
+            temperature=0.8 # Higher temperature for creative prosecution
         )
         self.tavily_client = TavilyClient(api_key=tavily_api_key)
         self.status_callback = status_callback

@@ -78,7 +78,7 @@ st.markdown("### Agentic Workflow with Strategists & Judicial Oversight")
 
 # Sidebar Configuration
 st.sidebar.title("Configuration")
-num_rounds = st.sidebar.slider("Number of Rounds", 1, 3, 1)
+# num_rounds = st.sidebar.slider("Number of Rounds", 1, 3, 1) # Removed for interactive rounds
 
 # Session State
 if "history" not in st.session_state:
@@ -110,71 +110,117 @@ if st.session_state.run_simulation and st.session_state.case_summary:
     # Load Agents
     defense_attorney, defense_strategist, prosecutor, prosecution_strategist, judge = initialize_agents()
     
-    defense_brief = ""
-    prosecution_brief = ""
-    defense_strategy_doc = ""
-    prosecution_strategy_doc = ""
+    # Initialize Session State for Rounds
+    if "rounds" not in st.session_state:
+        st.session_state.rounds = []
+    if "verdict_ready" not in st.session_state:
+        st.session_state.verdict_ready = False
+    if "verdict_text" not in st.session_state:
+        st.session_state.verdict_text = None
 
-    # --- SIMULATION LOOP ---
-    for r in range(num_rounds):
-        st.markdown("---")
-        st.subheader(f"Session Round {r+1}")
+    # Helper: Accumulate Briefs
+    def get_briefs():
+        defense_brief = ""
+        prosecution_brief = ""
+        defense_strategy = ""
+        prosecution_strategy = ""
         
+        for r in st.session_state.rounds:
+            defense_brief += f"\nRound {r['round']}: {r['defense_arg']}\n"
+            prosecution_brief += f"\nRound {r['round']}: {r['prosecution_arg']}\n"
+            defense_strategy += f"\nRound {r['round']}: {r['defense_strat']}\n"
+            prosecution_strategy += f"\nRound {r['round']}: {r['prosecution_strat']}\n"
+            
+        return defense_brief, prosecution_brief, defense_strategy, prosecution_strategy
+
+    # --- RENDER EXISTING ROUNDS ---
+    for r_data in st.session_state.rounds:
+        st.markdown("---")
+        st.subheader(f"Session Round {r_data['round']}")
         col1, col2 = st.columns(2)
         
-        # 1. Prosecution Case (Prosecutor always starts criminal cases)
         with col1:
             st.markdown("### 🏛️ Prosecution")
-            with st.spinner("Prosecution Team is strategizing..."):
-                # Strategy Step
-                if r == 0:
-                    p_strat = prosecution_strategist.strategize(st.session_state.case_summary, "Initial Opening Strategy")
-                else:
-                    p_strat = prosecution_strategist.strategize(st.session_state.case_summary, defense_brief)
-                
-                prosecution_strategy_doc += f"\nRound {r+1}: {p_strat}\n"
-                with st.expander("View Prosecution Strategy (Internal)", expanded=False):
-                    st.info(p_strat)
+            with st.expander("View Prosecution Strategy (Internal)", expanded=False):
+                st.info(r_data['prosecution_strat'])
+            st.chat_message("assistant", avatar="⚖️").write(r_data['prosecution_arg'])
             
-            with st.spinner("Prosecutor is presenting argument..."):
-                # Argument Step
-                if r == 0:
-                     p_arg = prosecutor.prosecute(st.session_state.case_summary, "Opening Statement")
-                else:
-                     p_arg = prosecutor.prosecute(st.session_state.case_summary, defense_brief)
-                
-                prosecution_brief += f"\nRound {r+1}: {p_arg}\n"
-                st.chat_message("assistant", avatar="⚖️").write(p_arg)
-
-        # 2. Defense Case
         with col2:
             st.markdown("### 🛡️ Defense")
-            with st.spinner("Defense Team is analyzing..."):
-                # Strategy Step
-                d_strat = defense_strategist.strategize(st.session_state.case_summary, p_arg)
-                defense_strategy_doc += f"\nRound {r+1}: {d_strat}\n"
-                with st.expander("View Defense Strategy (Internal)", expanded=False):
-                    st.info(d_strat)
+            with st.expander("View Defense Strategy (Internal)", expanded=False):
+                st.info(r_data['defense_strat'])
+            st.chat_message("user", avatar="🛡️").write(r_data['defense_arg'])
             
-            with st.spinner("Defense Attorney is rebutting..."):
-                # Argument Step
-                d_arg = defense_attorney.advocate(st.session_state.case_summary, p_arg)
-                defense_brief += f"\nRound {r+1}: {d_arg}\n"
-                st.chat_message("user", avatar="🛡️").write(d_arg)
+        st.caption(f"End of Round {r_data['round']}.")
 
-        # 3. Judicial Note
-        st.caption(f"End of Round {r+1}. The Judge is taking notes.")
+    # --- CONTROL FLOW ---
+    
+    # 1. Check if Verdict is Ready (Auto-Trigger)
+    if not st.session_state.verdict_ready and st.session_state.rounds:
+        d_brief, p_brief, _, _ = get_briefs()
+        if judge.has_sufficient_evidence(d_brief, p_brief):
+            st.session_state.verdict_ready = True
+            st.info("🧑‍⚖️ The Judge has heard enough evidence to render a verdict.")
+            st.rerun()
+
+    # 2. Action Buttons
+    if not st.session_state.verdict_ready:
+        col_next, col_verdict = st.columns([1, 4])
+        
+        with col_next:
+            if st.button("Next Round ➡️", type="primary"):
+                round_num = len(st.session_state.rounds) + 1
+                
+                # Get previous context
+                d_brief, p_brief, _, _ = get_briefs()
+                
+                # Run Agents
+                with st.spinner(f"Running Round {round_num}..."):
+                    # Prosecution Turn
+                    if round_num == 1:
+                        p_strat = prosecution_strategist.strategize(st.session_state.case_summary, "Initial Opening Strategy")
+                        p_arg = prosecutor.prosecute(st.session_state.case_summary, "Opening Statement")
+                    else:
+                        p_strat = prosecution_strategist.strategize(st.session_state.case_summary, d_brief)
+                        p_arg = prosecutor.prosecute(st.session_state.case_summary, d_brief)
+                    
+                    # Defense Turn
+                    d_strat = defense_strategist.strategize(st.session_state.case_summary, p_arg)
+                    d_arg = defense_attorney.advocate(st.session_state.case_summary, p_arg)
+                    
+                    # Save Round Data
+                    st.session_state.rounds.append({
+                        "round": round_num,
+                        "prosecution_strat": p_strat,
+                        "prosecution_arg": p_arg,
+                        "defense_strat": d_strat,
+                        "defense_arg": d_arg
+                    })
+                    st.rerun()
+                    
+        with col_verdict:
+            if st.button("Show Verdict 🧑‍⚖️"):
+                st.session_state.verdict_ready = True
+                st.rerun()
 
     # --- FINAL VERDICT ---
-    st.markdown("---")
-    st.header("🧑‍⚖️ Final Verdict")
-    
-    if st.button("Request Verdict"):
-        with st.spinner("The Judge is deliberating (checking facts with Tavily)..."):
-            verdict = judge.deliberate(
-                defense_brief=defense_brief,
-                prosecution_brief=prosecution_brief,
-                defense_strategy=defense_strategy_doc,
-                prosecution_strategy=prosecution_strategy_doc
-            )
-            st.markdown(verdict)
+    if st.session_state.verdict_ready:
+        st.markdown("---")
+        st.header("🧑‍⚖️ Final Verdict")
+        
+        if not st.session_state.verdict_text:
+            d_brief, p_brief, d_strat, p_strat = get_briefs()
+            with st.spinner("The Judge is deliberating (checking facts with Tavily)..."):
+                verdict = judge.deliberate(
+                    defense_brief=d_brief,
+                    prosecution_brief=p_brief,
+                    defense_strategy=d_strat,
+                    prosecution_strategy=p_strat
+                )
+                st.session_state.verdict_text = verdict
+                
+        st.markdown(st.session_state.verdict_text)
+        
+        if st.button("Start New Session"):
+            st.session_state.clear()
+            st.rerun()
